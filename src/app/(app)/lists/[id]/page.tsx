@@ -130,11 +130,9 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
           const h = window.innerHeight;
           const bursts: ConfettiState[] = [];
           const positions = [
-            { x: w * 0.2, y: h * 0.3 },
-            { x: w * 0.8, y: h * 0.3 },
-            { x: w * 0.5, y: h * 0.2 },
-            { x: w * 0.3, y: h * 0.5 },
-            { x: w * 0.7, y: h * 0.5 },
+            { x: w * 0.5, y: h * 0.3 },
+            { x: w * 0.2, y: h * 0.5 },
+            { x: w * 0.8, y: h * 0.5 },
           ];
           positions.forEach((pos, i) => {
             confettiKey.current++;
