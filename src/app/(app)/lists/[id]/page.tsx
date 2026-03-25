@@ -215,6 +215,13 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     openShare();
   };
 
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const deleteList = async () => {
+    await supabase.from("listly_lists").delete().eq("id", listId);
+    window.location.href = "/lists";
+  };
+
   const uncheckedItems = items.filter((i) => !i.checked);
   const checkedItems = items.filter((i) => i.checked);
 
@@ -233,12 +240,20 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
             <p className="text-xs text-muted">{uncheckedItems.length} remaining</p>
           </div>
         </div>
-        <button
-          onClick={openShare}
-          className="p-2 text-muted hover:text-emerald transition-colors"
-        >
-          <Share2 className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={openShare}
+            className="p-2 text-muted hover:text-emerald transition-colors"
+          >
+            <Share2 className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="p-2 text-muted hover:text-red-400 transition-colors"
+          >
+            <Trash2 className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       {/* Add item */}
@@ -318,6 +333,32 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
             ))}
           </div>
         </>
+      )}
+
+      {/* Delete confirmation */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center px-6">
+          <div className="bg-surface rounded-2xl p-6 border border-border max-w-sm w-full">
+            <h3 className="font-bold text-foreground mb-2">Delete List?</h3>
+            <p className="text-sm text-muted mb-6">
+              This will permanently delete &quot;{listName}&quot; and all its items.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl border border-border text-foreground text-sm font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={deleteList}
+                className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-sm font-medium"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Share modal */}
