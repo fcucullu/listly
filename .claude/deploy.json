@@ -1,0 +1,14 @@
+{
+  "github_repo": "fcucullu/listly",
+  "supabase_project_ref": "ytgyumihoeiwuyxbptjj",
+  "supabase_url": "https://ytgyumihoeiwuyxbptjj.supabase.co",
+  "vercel_project_name": "listly",
+  "subdomain": "listly",
+  "domain": "franciscocucullu.com",
+  "vapid_public_key": "",
+  "portfolio_title": "Listly",
+  "portfolio_description": "Shared shopping lists for couples and friends. Add items in real-time, check them off with confetti, and share lists by email.",
+  "portfolio_body": "Listly is a PWA for sharing shopping lists with the people you care about. Create multiple lists (groceries, wish list, etc.), share them with specific people by email, and collaborate in real-time via Supabase subscriptions. Checking off items triggers a satisfying confetti animation. Built with Google OAuth, emerald green theme, and designed as a mobile-first PWA.",
+  "portfolio_tags": ["Next.js", "Supabase", "PWA", "TypeScript"],
+  "portfolio_img": "/assets/stock-1.jpg"
+}
