@@ -123,24 +123,19 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
       const remainingUnchecked = items.filter(
         (i) => !i.checked && i.id !== item.id
       ).length;
-      if (remainingUnchecked === 0 && items.length > 1) {
-        // Fire confetti from multiple points across the screen
-        setTimeout(() => {
-          const w = window.innerWidth;
-          const h = window.innerHeight;
-          const bursts: ConfettiState[] = [];
-          const positions = [
-            { x: w * 0.5, y: h * 0.3 },
-            { x: w * 0.2, y: h * 0.5 },
-            { x: w * 0.8, y: h * 0.5 },
-          ];
-          positions.forEach((pos, i) => {
-            confettiKey.current++;
-            bursts.push({ key: confettiKey.current + i, ...pos });
-          });
-          setBonusConfetti(bursts);
-          setTimeout(() => setBonusConfetti([]), 2000);
-        }, 300);
+      if (remainingUnchecked === 0) {
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        const positions = [
+          { x: w * 0.5, y: h * 0.3 },
+          { x: w * 0.2, y: h * 0.5 },
+          { x: w * 0.8, y: h * 0.5 },
+        ];
+        const bursts = positions.map((pos) => {
+          confettiKey.current++;
+          return { key: confettiKey.current, ...pos };
+        });
+        setTimeout(() => setBonusConfetti(bursts), 400);
       }
     }
 
@@ -436,7 +431,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
           key={c.key}
           x={c.x}
           y={c.y}
-          onDone={() => {}}
+          onDone={() => setBonusConfetti((prev) => prev.filter((b) => b.key !== c.key))}
         />
       ))}
     </div>
