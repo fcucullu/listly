@@ -30,7 +30,7 @@ export function ConfettiBurst({ x, y, onDone }: { x: number; y: number; onDone: 
     canvas.height = window.innerHeight * dpr;
     ctx.scale(dpr, dpr);
 
-    const colors = ["#06B6D4", "#22D3EE", "#67E8F9", "#F59E0B", "#10B981", "#EC4899", "#8B5CF6", "#EF4444", "#F97316"];
+    const colors = ["#10B981", "#34D399", "#6EE7B7", "#F59E0B", "#EC4899", "#8B5CF6", "#06B6D4", "#EF4444", "#F97316"];
     const particles: Particle[] = [];
     const count = 80;
 

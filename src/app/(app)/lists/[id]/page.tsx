@@ -97,14 +97,8 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
 
   const toggleItem = async (item: Item, e: React.MouseEvent) => {
     const newChecked = !item.checked;
-    await supabase
-      .from("listly_items")
-      .update({
-        checked: newChecked,
-        checked_at: newChecked ? new Date().toISOString() : null,
-      })
-      .eq("id", item.id);
 
+    // Fire confetti immediately before async call
     if (newChecked) {
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
       confettiKey.current++;
@@ -114,6 +108,14 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
         y: rect.top + rect.height / 2,
       });
     }
+
+    await supabase
+      .from("listly_items")
+      .update({
+        checked: newChecked,
+        checked_at: newChecked ? new Date().toISOString() : null,
+      })
+      .eq("id", item.id);
 
     loadItems();
   };
