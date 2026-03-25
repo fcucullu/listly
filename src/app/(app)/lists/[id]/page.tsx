@@ -34,6 +34,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const [items, setItems] = useState<Item[]>([]);
   const [newItem, setNewItem] = useState("");
   const [confetti, setConfetti] = useState<ConfettiState | null>(null);
+  const [bonusConfetti, setBonusConfetti] = useState<ConfettiState[]>([]);
   const [showShare, setShowShare] = useState(false);
   const [shareEmail, setShareEmail] = useState("");
   const [shareMessage, setShareMessage] = useState("");
@@ -116,6 +117,34 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
         checked_at: newChecked ? new Date().toISOString() : null,
       })
       .eq("id", item.id);
+
+    // Check if all items are now checked → celebration confetti
+    if (newChecked) {
+      const remainingUnchecked = items.filter(
+        (i) => !i.checked && i.id !== item.id
+      ).length;
+      if (remainingUnchecked === 0 && items.length > 1) {
+        // Fire confetti from multiple points across the screen
+        setTimeout(() => {
+          const w = window.innerWidth;
+          const h = window.innerHeight;
+          const bursts: ConfettiState[] = [];
+          const positions = [
+            { x: w * 0.2, y: h * 0.3 },
+            { x: w * 0.8, y: h * 0.3 },
+            { x: w * 0.5, y: h * 0.2 },
+            { x: w * 0.3, y: h * 0.5 },
+            { x: w * 0.7, y: h * 0.5 },
+          ];
+          positions.forEach((pos, i) => {
+            confettiKey.current++;
+            bursts.push({ key: confettiKey.current + i, ...pos });
+          });
+          setBonusConfetti(bursts);
+          setTimeout(() => setBonusConfetti([]), 2000);
+        }, 300);
+      }
+    }
 
     loadItems();
   };
@@ -361,6 +390,16 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
           onDone={() => setConfetti(null)}
         />
       )}
+
+      {/* Celebration confetti — all items checked! */}
+      {bonusConfetti.map((c) => (
+        <ConfettiBurst
+          key={c.key}
+          x={c.x}
+          y={c.y}
+          onDone={() => {}}
+        />
+      ))}
     </div>
   );
 }
