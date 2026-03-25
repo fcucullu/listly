@@ -118,7 +118,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
       })
       .eq("id", item.id);
 
-    // Check if all items are now checked → celebration confetti
+    // Check if all items are now checked → celebration confetti (3 waves)
     if (newChecked) {
       const remainingUnchecked = items.filter(
         (i) => !i.checked && i.id !== item.id
@@ -126,16 +126,23 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
       if (remainingUnchecked === 0) {
         const w = window.innerWidth;
         const h = window.innerHeight;
-        const positions = [
-          { x: w * 0.5, y: h * 0.3 },
-          { x: w * 0.2, y: h * 0.5 },
-          { x: w * 0.8, y: h * 0.5 },
-        ];
-        const bursts = positions.map((pos) => {
-          confettiKey.current++;
-          return { key: confettiKey.current, ...pos };
-        });
-        setTimeout(() => setBonusConfetti(bursts), 400);
+        const makeWave = () => {
+          const positions = [
+            { x: w * 0.5, y: h * 0.2 },
+            { x: w * 0.15, y: h * 0.4 },
+            { x: w * 0.85, y: h * 0.4 },
+            { x: w * 0.3, y: h * 0.65 },
+            { x: w * 0.7, y: h * 0.65 },
+          ];
+          return positions.map((pos) => {
+            confettiKey.current++;
+            return { key: confettiKey.current, ...pos };
+          });
+        };
+        // 3 waves, 800ms apart
+        setTimeout(() => setBonusConfetti(makeWave()), 400);
+        setTimeout(() => setBonusConfetti(makeWave()), 1200);
+        setTimeout(() => setBonusConfetti(makeWave()), 2000);
       }
     }
 
