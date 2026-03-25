@@ -46,8 +46,22 @@ jobs:
           if [ -z "$DOMAIN" ]; then DOMAIN="franciscocucullu.com"; fi
           SITE_URL="https://${SUBDOMAIN}.${DOMAIN}"
 
-          # Build auth config payload
-          AUTH_CONFIG="{\"site_url\":\"${SITE_URL}\",\"uri_allow_list\":\"${SITE_URL}/callback,${SITE_URL}/auth/callback\""
+          # Fetch existing redirect URLs and append this app's URLs
+          EXISTING=$(curl -s -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            "https://api.supabase.com/v1/projects/${{ secrets.SUPABASE_PROJECT_REF }}/config/auth" \
+            | python3 -c "import sys,json; print(json.load(sys.stdin).get('uri_allow_list',''))" 2>/dev/null || echo "")
+
+          APP_PATTERN="https://${SUBDOMAIN}.${DOMAIN}/**"
+          if echo "$EXISTING" | grep -q "$APP_PATTERN"; then
+            ALLOW_LIST="$EXISTING"
+          elif [ -n "$EXISTING" ]; then
+            ALLOW_LIST="${EXISTING},${APP_PATTERN}"
+          else
+            ALLOW_LIST="$APP_PATTERN"
+          fi
+
+          # Build auth config — don't override site_url, only append redirect URLs
+          AUTH_CONFIG="{\"uri_allow_list\":\"${ALLOW_LIST}\""
 
           # Add Google OAuth if credentials are configured
           GOOGLE_ID="${{ secrets.GOOGLE_CLIENT_ID }}"
