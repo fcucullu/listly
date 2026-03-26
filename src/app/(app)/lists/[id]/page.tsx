@@ -170,11 +170,11 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
 
     const { data } = await supabase
       .from("listly_members")
-      .select("user_id, profiles!listly_members_user_id_fkey(id, email, display_name)")
+      .select("user_id, global_profiles!listly_members_user_id_fkey(id, email, display_name)")
       .eq("list_id", listId);
 
     const users = (data ?? [])
-      .map((m) => m.profiles as unknown as SharedUser)
+      .map((m) => (m as any).global_profiles as unknown as SharedUser)
       .filter(Boolean);
     setSharedUsers(users);
   };
