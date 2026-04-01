@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Plus, X } from "lucide-react";
 import Link from "next/link";
+import { InstallPrompt } from "@/components/install-prompt";
 
 interface ListEntry {
   id: string;
@@ -114,7 +115,8 @@ export default function ListsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <InstallPrompt />
+      <div className="flex items-center justify-between mb-6 mt-4">
         <div>
           <h1 className="text-2xl font-bold emerald-shimmer">Listly</h1>
           <p className="text-xs text-muted mt-0.5">Your shared lists</p>
