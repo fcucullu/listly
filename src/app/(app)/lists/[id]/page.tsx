@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useRef, use } from "react";
+import { useEffect, useState, useRef, useCallback, use } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { ArrowLeft, Share2, Trash2, X, UserMinus } from "lucide-react";
+import { ArrowLeft, Share2, Trash2, X, UserMinus, GripVertical } from "lucide-react";
 import Link from "next/link";
 import { ConfettiBurst } from "@/components/confetti";
 
@@ -12,6 +12,7 @@ interface Item {
   checked: boolean;
   added_by: string;
   created_at: string;
+  position: number;
 }
 
 interface SharedUser {
@@ -41,6 +42,10 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const [sharedUsers, setSharedUsers] = useState<SharedUser[]>([]);
   const confettiKey = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     loadList();
@@ -76,7 +81,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
       .select("*")
       .eq("list_id", listId)
       .order("checked", { ascending: true })
-      .order("created_at", { ascending: false });
+      .order("position", { ascending: true });
     setItems(data ?? []);
   };
 
@@ -85,10 +90,14 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
+    // Shift existing items down
+    await supabase.rpc("listly_shift_positions", { p_list_id: listId, p_from: 0, p_delta: 1 });
+
     await supabase.from("listly_items").insert({
       list_id: listId,
       name: newItem.trim(),
       added_by: user.id,
+      position: 0,
     });
 
     setNewItem("");
@@ -224,7 +233,83 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     window.location.href = "/lists";
   };
 
+  const handleReorder = useCallback(async (fromIdx: number, toIdx: number) => {
+    const reordered = [...uncheckedItemsRef.current];
+    const [moved] = reordered.splice(fromIdx, 1);
+    reordered.splice(toIdx, 0, moved);
+
+    // Update positions locally for instant feedback
+    const updated = reordered.map((item, i) => ({ ...item, position: i }));
+    setItems((prev) => [
+      ...updated,
+      ...prev.filter((i) => i.checked),
+    ]);
+
+    // Persist to DB
+    for (let i = 0; i < updated.length; i++) {
+      await supabase
+        .from("listly_items")
+        .update({ position: i })
+        .eq("id", updated[i].id);
+    }
+  }, [supabase]);
+
+  const handleDragStart = (index: number) => {
+    setDragIndex(index);
+    setOverIndex(index);
+    setIsDragging(true);
+    if (navigator.vibrate) navigator.vibrate(30);
+  };
+
+  const handleDragOver = (index: number) => {
+    if (dragIndex === null) return;
+    setOverIndex(index);
+  };
+
+  const handleDragEnd = () => {
+    if (dragIndex !== null && overIndex !== null && dragIndex !== overIndex) {
+      handleReorder(dragIndex, overIndex);
+    }
+    setDragIndex(null);
+    setOverIndex(null);
+    setIsDragging(false);
+  };
+
+  const handleTouchStart = (index: number) => {
+    longPressTimer.current = setTimeout(() => {
+      handleDragStart(index);
+    }, 400);
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    if (isDragging) handleDragEnd();
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) {
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
+      }
+      return;
+    }
+    e.preventDefault();
+    const touch = e.touches[0];
+    const elements = document.elementsFromPoint(touch.clientX, touch.clientY);
+    const itemEl = elements.find((el) => el.getAttribute("data-drag-index") !== null);
+    if (itemEl) {
+      const idx = parseInt(itemEl.getAttribute("data-drag-index")!, 10);
+      setOverIndex(idx);
+    }
+  };
+
   const uncheckedItems = items.filter((i) => !i.checked);
+  const uncheckedItemsRef = useRef(uncheckedItems);
+  uncheckedItemsRef.current = uncheckedItems;
   const checkedItems = items.filter((i) => i.checked);
 
   return (
@@ -279,25 +364,45 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
       </div>
 
       {/* Unchecked items */}
-      <div className="space-y-2 mb-6">
-        {uncheckedItems.map((item) => (
-          <div
-            key={item.id}
-            className="flex items-center gap-3 bg-surface rounded-xl p-3 border border-border"
-          >
-            <button
-              onClick={(e) => toggleItem(item, e)}
-              className="w-6 h-6 rounded-full border-2 border-emerald shrink-0 hover:bg-emerald/20 transition-colors"
-            />
-            <span className="flex-1 text-sm text-foreground">{item.name}</span>
-            <button
-              onClick={() => deleteItem(item.id)}
-              className="text-muted hover:text-red-400 shrink-0"
+      <div className="space-y-2 mb-6" onTouchMove={handleTouchMove}>
+        {uncheckedItems.map((item, index) => {
+          const isBeingDragged = isDragging && dragIndex === index;
+          const isOver = isDragging && overIndex === index && dragIndex !== index;
+          return (
+            <div
+              key={item.id}
+              data-drag-index={index}
+              className={`flex items-center gap-2 bg-surface rounded-xl p-3 border transition-all ${
+                isBeingDragged ? "border-emerald opacity-50 scale-95" : isOver ? "border-emerald border-2" : "border-border"
+              }`}
+              draggable={isDragging}
+              onDragStart={() => handleDragStart(index)}
+              onDragOver={(e) => { e.preventDefault(); handleDragOver(index); }}
+              onDrop={handleDragEnd}
+              onDragEnd={handleDragEnd}
+              onTouchStart={() => handleTouchStart(index)}
+              onTouchEnd={handleTouchEnd}
             >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </div>
-        ))}
+              <div
+                className="text-muted shrink-0 cursor-grab active:cursor-grabbing touch-none"
+                onMouseDown={() => handleDragStart(index)}
+              >
+                <GripVertical className="w-4 h-4" />
+              </div>
+              <button
+                onClick={(e) => toggleItem(item, e)}
+                className="w-6 h-6 rounded-full border-2 border-emerald shrink-0 hover:bg-emerald/20 transition-colors"
+              />
+              <span className="flex-1 text-sm text-foreground">{item.name}</span>
+              <button
+                onClick={() => deleteItem(item.id)}
+                className="text-muted hover:text-red-400 shrink-0"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          );
+        })}
       </div>
 
       {/* Checked items */}
