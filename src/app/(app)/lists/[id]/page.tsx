@@ -484,6 +484,13 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
         </button>
       </div>
 
+      {/* Section label: Today */}
+      {todayCount > 0 && uncheckedItems.length > 0 && (
+        <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: "var(--color-emerald, #10b981)" }}>
+          Today ({todayCount})
+        </p>
+      )}
+
       {/* Unchecked items + today line (unified drag system) */}
       <div className="space-y-2 mb-6" onTouchMove={handleTouchMove}>
         {buildCombinedList().map((entry, index) => {
@@ -511,16 +518,16 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                 >
                   <div
                     className="shrink-0 cursor-grab active:cursor-grabbing touch-none"
-                    style={{ color: "var(--color-emerald, #10b981)" }}
+                    style={{ color: "var(--color-muted)" }}
                     onMouseDown={() => handleDragStart(index)}
                   >
                     <GripVertical className="w-4 h-4" />
                   </div>
-                  <div className="flex-1 border-t-2 border-dashed" style={{ borderColor: "var(--color-emerald, #10b981)" }} />
-                  <span className="text-[10px] font-semibold uppercase tracking-wider px-1 shrink-0" style={{ color: "var(--color-emerald, #10b981)" }}>
-                    today
+                  <div className="flex-1 border-t-2 border-dashed" style={{ borderColor: "var(--color-border, #333)" }} />
+                  <span className="text-[10px] font-medium uppercase tracking-wider px-1 shrink-0 text-muted">
+                    later
                   </span>
-                  <div className="flex-1 border-t-2 border-dashed" style={{ borderColor: "var(--color-emerald, #10b981)" }} />
+                  <div className="flex-1 border-t-2 border-dashed" style={{ borderColor: "var(--color-border, #333)" }} />
                 </div>
                 {showDropAfter && (
                   <div className="h-0.5 rounded-full mx-3" style={{ backgroundColor: "var(--color-emerald, #10b981)" }} />
@@ -530,6 +537,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
           }
 
           const item = entry.item;
+          const isForToday = todayCount > 0 && index < todayCount;
           return (
             <Fragment key={item.id}>
               {showDropBefore && (
@@ -537,9 +545,10 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
               )}
             <div
               data-drag-index={index}
-              className={`flex items-center gap-2 bg-surface rounded-xl p-3 border transition-all ${
-                isBeingDragged ? "border-emerald opacity-50 scale-95" : "border-border"
+              className={`flex items-center gap-2 rounded-xl p-3 border transition-all ${
+                isBeingDragged ? "border-emerald opacity-50 scale-95" : isForToday ? "border-emerald/30" : "border-border"
               }`}
+              style={{ backgroundColor: isForToday ? "rgba(16, 185, 129, 0.06)" : "var(--color-surface)" }}
               draggable={isDragging}
               onDragStart={() => handleDragStart(index)}
               onDragOver={(e) => { e.preventDefault(); handleDragOver(index); }}
