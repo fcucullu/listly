@@ -489,7 +489,8 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
       <div className="space-y-2 mb-6" onTouchMove={handleTouchMove}>
         {uncheckedItems.map((item, index) => {
           const isBeingDragged = isDragging && dragIndex === index;
-          const isOver = isDragging && overIndex === index && dragIndex !== index;
+          const showDropBefore = isDragging && overIndex === index && dragIndex !== index && dragIndex !== null && dragIndex > index;
+          const showDropAfter = isDragging && overIndex === index && dragIndex !== index && dragIndex !== null && dragIndex < index;
           const showTodayLine = todayCount > 0 && index === todayCount;
           return (
             <Fragment key={item.id}>
@@ -506,10 +507,13 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                   <div className="flex-1 border-t-2 border-dashed" style={{ borderColor: "var(--color-emerald, #10b981)" }} />
                 </div>
               )}
+              {showDropBefore && (
+                <div className="h-0.5 rounded-full mx-3" style={{ backgroundColor: "var(--color-emerald, #10b981)" }} />
+              )}
             <div
               data-drag-index={index}
               className={`flex items-center gap-2 bg-surface rounded-xl p-3 border transition-all ${
-                isBeingDragged ? "border-emerald opacity-50 scale-95" : isOver ? "border-emerald border-2" : "border-border"
+                isBeingDragged ? "border-emerald opacity-50 scale-95" : "border-border"
               }`}
               draggable={isDragging}
               onDragStart={() => handleDragStart(index)}
@@ -582,6 +586,9 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                 <Trash2 className="w-4 h-4" />
               </button>
             </div>
+              {showDropAfter && (
+                <div className="h-0.5 rounded-full mx-3" style={{ backgroundColor: "var(--color-emerald, #10b981)" }} />
+              )}
             </Fragment>
           );
         })}
