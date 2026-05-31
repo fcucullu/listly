@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback, use } from "react";
+import { useEffect, useState, useRef, useCallback, use, Fragment } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ArrowLeft, Share2, Trash2, X, UserMinus, GripVertical, User } from "lucide-react";
 import Link from "next/link";
@@ -48,6 +48,8 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const [sharedUsers, setSharedUsers] = useState<SharedUser[]>([]);
   const [members, setMembers] = useState<SharedUser[]>([]);
   const [assignPopover, setAssignPopover] = useState<string | null>(null);
+  const [todayCount, setTodayCount] = useState(0);
+  const [draggingLine, setDraggingLine] = useState(false);
   const confettiKey = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -118,13 +120,65 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const loadList = async () => {
     const { data } = await supabase
       .from("listly_lists")
-      .select("name, emoji")
+      .select("name, emoji, today_count")
       .eq("id", listId)
       .single();
     if (data) {
       setListName(data.name);
       setListEmoji(data.emoji);
+      setTodayCount(data.today_count ?? 0);
     }
+  };
+
+  const updateTodayCount = async (count: number) => {
+    setTodayCount(count);
+    await supabase
+      .from("listly_lists")
+      .update({ today_count: count })
+      .eq("id", listId);
+  };
+
+  const handleLineDrag = (e: React.TouchEvent | React.MouseEvent) => {
+    e.preventDefault();
+    setDraggingLine(true);
+
+    const getY = (ev: TouchEvent | MouseEvent) =>
+      "touches" in ev ? ev.touches[0].clientY : (ev as MouseEvent).clientY;
+
+    const onMove = (ev: TouchEvent | MouseEvent) => {
+      const y = getY(ev);
+      const itemEls = document.querySelectorAll("[data-drag-index]");
+      let newCount = 0;
+      itemEls.forEach((el) => {
+        const rect = el.getBoundingClientRect();
+        if (y > rect.top + rect.height / 2) {
+          newCount = parseInt(el.getAttribute("data-drag-index")!, 10) + 1;
+        }
+      });
+      setTodayCount(Math.max(0, newCount));
+    };
+
+    const onEnd = () => {
+      setDraggingLine(false);
+      document.removeEventListener("touchmove", onMove);
+      document.removeEventListener("touchend", onEnd);
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onEnd);
+      // Save the final value — read from DOM since state may be stale in closure
+      const itemEls = document.querySelectorAll("[data-drag-index]");
+      // Use a microtask to read the latest state
+      setTimeout(() => {
+        setTodayCount((c) => {
+          supabase.from("listly_lists").update({ today_count: c }).eq("id", listId);
+          return c;
+        });
+      }, 0);
+    };
+
+    document.addEventListener("touchmove", onMove, { passive: false });
+    document.addEventListener("touchend", onEnd);
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onEnd);
   };
 
   const loadItems = async () => {
@@ -416,14 +470,43 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
         </button>
       </div>
 
+      {/* Today line — show at top if todayCount === 0 and there are items, to let user drag it down */}
+      {uncheckedItems.length > 0 && todayCount === 0 && (
+        <div
+          className="flex items-center gap-2 py-1 cursor-ns-resize select-none mb-2 opacity-40 hover:opacity-100 transition-opacity"
+          onMouseDown={handleLineDrag}
+          onTouchStart={handleLineDrag}
+        >
+          <div className="flex-1 border-t-2 border-dashed" style={{ borderColor: "var(--color-emerald, #10b981)" }} />
+          <span className="text-[10px] font-semibold uppercase tracking-wider px-1 shrink-0" style={{ color: "var(--color-emerald, #10b981)" }}>
+            drag to set today
+          </span>
+          <div className="flex-1 border-t-2 border-dashed" style={{ borderColor: "var(--color-emerald, #10b981)" }} />
+        </div>
+      )}
+
       {/* Unchecked items */}
       <div className="space-y-2 mb-6" onTouchMove={handleTouchMove}>
         {uncheckedItems.map((item, index) => {
           const isBeingDragged = isDragging && dragIndex === index;
           const isOver = isDragging && overIndex === index && dragIndex !== index;
+          const showTodayLine = todayCount > 0 && index === todayCount;
           return (
+            <Fragment key={item.id}>
+              {showTodayLine && (
+                <div
+                  className="flex items-center gap-2 py-1 cursor-ns-resize select-none"
+                  onMouseDown={handleLineDrag}
+                  onTouchStart={handleLineDrag}
+                >
+                  <div className="flex-1 border-t-2 border-dashed" style={{ borderColor: "var(--color-emerald, #10b981)" }} />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider px-1 shrink-0" style={{ color: "var(--color-emerald, #10b981)" }}>
+                    today
+                  </span>
+                  <div className="flex-1 border-t-2 border-dashed" style={{ borderColor: "var(--color-emerald, #10b981)" }} />
+                </div>
+              )}
             <div
-              key={item.id}
               data-drag-index={index}
               className={`flex items-center gap-2 bg-surface rounded-xl p-3 border transition-all ${
                 isBeingDragged ? "border-emerald opacity-50 scale-95" : isOver ? "border-emerald border-2" : "border-border"
@@ -499,6 +582,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                 <Trash2 className="w-4 h-4" />
               </button>
             </div>
+            </Fragment>
           );
         })}
       </div>
