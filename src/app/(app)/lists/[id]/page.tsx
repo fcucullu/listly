@@ -140,12 +140,15 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
 
   const handleLineDrag = (e: React.TouchEvent | React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setDraggingLine(true);
+    if (navigator.vibrate) navigator.vibrate(30);
 
     const getY = (ev: TouchEvent | MouseEvent) =>
       "touches" in ev ? ev.touches[0].clientY : (ev as MouseEvent).clientY;
 
     const onMove = (ev: TouchEvent | MouseEvent) => {
+      ev.preventDefault();
       const y = getY(ev);
       const itemEls = document.querySelectorAll("[data-drag-index]");
       let newCount = 0;
@@ -158,15 +161,13 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
       setTodayCount(Math.max(0, newCount));
     };
 
-    const onEnd = () => {
+    const onEnd = (ev: TouchEvent | MouseEvent) => {
+      ev.preventDefault();
       setDraggingLine(false);
       document.removeEventListener("touchmove", onMove);
       document.removeEventListener("touchend", onEnd);
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onEnd);
-      // Save the final value — read from DOM since state may be stale in closure
-      const itemEls = document.querySelectorAll("[data-drag-index]");
-      // Use a microtask to read the latest state
       setTimeout(() => {
         setTodayCount((c) => {
           supabase.from("listly_lists").update({ today_count: c }).eq("id", listId);
@@ -176,7 +177,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     };
 
     document.addEventListener("touchmove", onMove, { passive: false });
-    document.addEventListener("touchend", onEnd);
+    document.addEventListener("touchend", onEnd, { passive: false } as AddEventListenerOptions);
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onEnd);
   };
@@ -473,7 +474,8 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
       {/* Today line — show at top if todayCount === 0 and there are items, to let user drag it down */}
       {uncheckedItems.length > 0 && todayCount === 0 && (
         <div
-          className="flex items-center gap-2 py-1 cursor-ns-resize select-none mb-2 opacity-40 hover:opacity-100 transition-opacity"
+          className="flex items-center gap-2 py-2 cursor-ns-resize select-none mb-2 opacity-40 hover:opacity-100 transition-opacity"
+          style={{ touchAction: "none" }}
           onMouseDown={handleLineDrag}
           onTouchStart={handleLineDrag}
         >
@@ -496,7 +498,8 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
             <Fragment key={item.id}>
               {showTodayLine && (
                 <div
-                  className="flex items-center gap-2 py-1 cursor-ns-resize select-none"
+                  className="flex items-center gap-2 py-2 cursor-ns-resize select-none"
+                  style={{ touchAction: "none" }}
                   onMouseDown={handleLineDrag}
                   onTouchStart={handleLineDrag}
                 >
