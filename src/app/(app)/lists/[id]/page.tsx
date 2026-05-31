@@ -472,7 +472,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
           value={newItem}
           onChange={(e) => setNewItem(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && addItem()}
-          placeholder="Add an item..."
+          placeholder="Add a task..."
           className="flex-1 bg-surface border border-border rounded-xl px-4 py-3 text-foreground text-sm outline-none focus:border-emerald"
         />
         <button

@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Listly",
     short_name: "Listly",
-    description: "Shared shopping lists for couples and friends",
+    description: "Shared lists for getting things done together",
     start_url: "/lists",
     display: "standalone",
     background_color: "#0a0a0a",

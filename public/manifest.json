@@ -1,7 +1,7 @@
 {
   "name": "Listly",
   "short_name": "Listly",
-  "description": "Shared shopping lists for couples and friends",
+  "description": "Shared lists for getting things done together",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0A0A0A",

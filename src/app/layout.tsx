@@ -5,7 +5,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Listly",
-  description: "Shared shopping lists for couples and friends",
+  description: "Shared lists for getting things done together",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

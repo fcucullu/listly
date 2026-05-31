@@ -1,7 +1,7 @@
 {
   "name": "listly",
   "version": "1.0.0",
-  "description": "Shared shopping lists for couples and friends",
+  "description": "Shared lists for getting things done together",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

@@ -1,7 +1,7 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
-import { ShoppingCart } from "lucide-react";
+import { ListChecks } from "lucide-react";
 
 export default function LoginPage() {
   const supabase = createClient();
@@ -19,11 +19,11 @@ export default function LoginPage() {
     <div className="min-h-screen flex flex-col items-center justify-center px-6">
       <div className="text-center mb-10">
         <div className="w-16 h-16 rounded-2xl bg-emerald/20 flex items-center justify-center mx-auto mb-4">
-          <ShoppingCart className="w-8 h-8 text-emerald" />
+          <ListChecks className="w-8 h-8 text-emerald" />
         </div>
         <h1 className="text-3xl font-bold emerald-shimmer mb-2">Listly</h1>
         <p className="text-muted text-sm">
-          Shared shopping lists for you and yours
+          Shared lists for getting things done together
         </p>
       </div>
 
