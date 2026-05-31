@@ -1,30 +1,59 @@
 "use client";
 
+import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { LogOut, Send } from "lucide-react";
 
 export default function SettingsPage() {
   const supabase = createClient();
   const router = useRouter();
+  const [feedback, setFeedback] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     router.push("/login");
   };
 
+  const handleFeedback = async () => {
+    if (!feedback.trim()) return;
+    setSending(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    await fetch("/api/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: feedback, type: "Feedback", email: user?.email }),
+    });
+    setSending(false);
+    setSent(true);
+    setFeedback("");
+    setTimeout(() => setSent(false), 3000);
+  };
+
   return (
     <div>
       <h1 className="text-xl font-bold text-foreground mb-6">Settings</h1>
-      {/* WhatsApp feedback */}
-      <a
-        href="https://wa.me/34644941706?text=Hey%20Fran!%20%F0%9F%91%8B%20I'm%20using%20Listly%20and%20wanted%20to%20tell%20you..."
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center justify-center gap-2 bg-surface border border-border rounded-xl py-4 text-sm font-medium text-foreground hover:border-primary/30 transition-colors mb-4"
-      >
-        Feedback? Chat with Fran 💬
-      </a>
+
+      {/* Feedback form */}
+      <div className="bg-surface border border-border rounded-xl p-4 mb-4">
+        <p className="text-sm font-medium text-foreground mb-2">Send Feedback</p>
+        <textarea
+          value={feedback}
+          onChange={(e) => setFeedback(e.target.value)}
+          placeholder="What can we improve?"
+          rows={3}
+          className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-emerald resize-none mb-2"
+        />
+        <button
+          onClick={handleFeedback}
+          disabled={sending || !feedback.trim()}
+          className="flex items-center gap-2 bg-emerald text-black font-medium px-4 py-2 rounded-lg text-sm disabled:opacity-40"
+        >
+          <Send className="w-4 h-4" /> {sending ? "Sending..." : sent ? "Sent!" : "Send"}
+        </button>
+      </div>
 
       <button
         onClick={handleSignOut}
