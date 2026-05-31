@@ -12,6 +12,19 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
     title: "Listly",
   },
+  openGraph: {
+    title: "Listly",
+    description: "Shared lists for getting things done together",
+    url: "https://listly.franciscocucullu.com",
+    images: [{ url: "/og-image.png", width: 1200, height: 630 }],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Listly",
+    description: "Shared lists for getting things done together",
+    images: ["/og-image.png"],
+  },
   other: {
     "google": "notranslate",
   },
