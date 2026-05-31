@@ -130,10 +130,11 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   };
 
   const saveTodayCount = async (count: number) => {
-    await supabase
+    const { error } = await supabase
       .from("listly_lists")
       .update({ today_count: count })
       .eq("id", listId);
+    if (error) console.error("Failed to save today_count:", error);
   };
 
   const TODAY_LINE_ID = "__today_line__";
