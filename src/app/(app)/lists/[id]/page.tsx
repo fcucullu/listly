@@ -49,7 +49,6 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const [members, setMembers] = useState<SharedUser[]>([]);
   const [assignPopover, setAssignPopover] = useState<string | null>(null);
   const [todayCount, setTodayCount] = useState(0);
-  const [draggingLine, setDraggingLine] = useState(false);
   const confettiKey = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -137,58 +136,72 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
       .eq("id", listId);
   };
 
-  const handleLineDrag = (e: React.TouchEvent | React.MouseEvent) => {
+  // Today line drag — uses the same item drag indices to determine position
+  const [draggingTodayLine, setDraggingTodayLine] = useState(false);
+  const todayLongPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleTodayLineTouchStart = () => {
+    todayLongPressTimer.current = setTimeout(() => {
+      setDraggingTodayLine(true);
+      if (navigator.vibrate) navigator.vibrate(30);
+    }, 400);
+  };
+
+  const handleTodayLineTouchEnd = () => {
+    if (todayLongPressTimer.current) {
+      clearTimeout(todayLongPressTimer.current);
+      todayLongPressTimer.current = null;
+    }
+    if (draggingTodayLine) {
+      setDraggingTodayLine(false);
+      saveTodayCount(todayCount);
+    }
+  };
+
+  const handleTodayLineTouchMove = (e: React.TouchEvent) => {
+    if (!draggingTodayLine) {
+      if (todayLongPressTimer.current) {
+        clearTimeout(todayLongPressTimer.current);
+        todayLongPressTimer.current = null;
+      }
+      return;
+    }
     e.preventDefault();
-    e.stopPropagation();
-    setDraggingLine(true);
+    const touch = e.touches[0];
+    const itemEls = document.querySelectorAll("[data-item-index]");
+    let newCount = 0;
+    itemEls.forEach((el) => {
+      const rect = el.getBoundingClientRect();
+      if (touch.clientY > rect.top + rect.height / 2) {
+        newCount = parseInt(el.getAttribute("data-item-index")!, 10) + 1;
+      }
+    });
+    setTodayCount(Math.max(0, Math.min(newCount, uncheckedItemsRef.current.length)));
+  };
+
+  const handleTodayLineMouseDown = () => {
+    setDraggingTodayLine(true);
     if (navigator.vibrate) navigator.vibrate(30);
 
-    const getY = (ev: TouchEvent | MouseEvent) => {
-      if ("touches" in ev) {
-        const touch = ev.touches[0] || ev.changedTouches[0];
-        return touch?.clientY ?? 0;
-      }
-      return (ev as MouseEvent).clientY;
-    };
-
-    const onMove = (ev: TouchEvent | MouseEvent) => {
-      ev.preventDefault();
-      const y = getY(ev);
-      const itemEls = document.querySelectorAll("[data-drag-index]");
+    const onMove = (ev: MouseEvent) => {
+      const itemEls = document.querySelectorAll("[data-item-index]");
       let newCount = 0;
       itemEls.forEach((el) => {
         const rect = el.getBoundingClientRect();
-        if (y > rect.top + rect.height / 2) {
-          newCount = parseInt(el.getAttribute("data-drag-index")!, 10) + 1;
+        if (ev.clientY > rect.top + rect.height / 2) {
+          newCount = parseInt(el.getAttribute("data-item-index")!, 10) + 1;
         }
       });
       setTodayCount(Math.max(0, newCount));
     };
 
-    const onEnd = (ev: TouchEvent | MouseEvent) => {
-      ev.preventDefault();
-      setDraggingLine(false);
-      document.removeEventListener("touchmove", onMove);
-      document.removeEventListener("touchend", onEnd);
+    const onEnd = () => {
+      setDraggingTodayLine(false);
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onEnd);
-      // Calculate final position from DOM
-      const y = getY(ev);
-      const els = document.querySelectorAll("[data-drag-index]");
-      let finalCount = 0;
-      els.forEach((el) => {
-        const rect = el.getBoundingClientRect();
-        if (y > rect.top + rect.height / 2) {
-          finalCount = parseInt(el.getAttribute("data-drag-index")!, 10) + 1;
-        }
-      });
-      finalCount = Math.max(0, finalCount);
-      setTodayCount(finalCount);
-      saveTodayCount(finalCount);
+      setTodayCount((c) => { saveTodayCount(c); return c; });
     };
 
-    document.addEventListener("touchmove", onMove, { passive: false });
-    document.addEventListener("touchend", onEnd, { passive: false } as AddEventListenerOptions);
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onEnd);
   };
@@ -485,16 +498,26 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
       {/* Today line — show at top if todayCount === 0 and there are items, to let user drag it down */}
       {uncheckedItems.length > 0 && todayCount === 0 && (
         <div
-          className="flex items-center gap-2 py-2 cursor-ns-resize select-none mb-2 opacity-40 hover:opacity-100 transition-opacity"
-          style={{ touchAction: "none" }}
-          onMouseDown={handleLineDrag}
-          onTouchStart={handleLineDrag}
+          className={`flex items-center gap-2 rounded-xl p-3 border-2 border-dashed mb-2 select-none opacity-40 hover:opacity-100 transition-all ${draggingTodayLine ? "opacity-100 scale-95" : ""}`}
+          style={{ borderColor: "var(--color-emerald, #10b981)", touchAction: "none" }}
+          onTouchStart={handleTodayLineTouchStart}
+          onTouchEnd={handleTodayLineTouchEnd}
+          onTouchMove={handleTodayLineTouchMove}
         >
-          <div className="flex-1 border-t-2 border-dashed" style={{ borderColor: "var(--color-emerald, #10b981)" }} />
-          <span className="text-[10px] font-semibold uppercase tracking-wider px-1 shrink-0" style={{ color: "var(--color-emerald, #10b981)" }}>
-            drag to set today
-          </span>
-          <div className="flex-1 border-t-2 border-dashed" style={{ borderColor: "var(--color-emerald, #10b981)" }} />
+          <div
+            className="shrink-0 cursor-grab active:cursor-grabbing touch-none"
+            style={{ color: "var(--color-emerald, #10b981)" }}
+            onMouseDown={handleTodayLineMouseDown}
+          >
+            <GripVertical className="w-4 h-4" />
+          </div>
+          <div className="flex-1 flex items-center gap-2">
+            <div className="flex-1 border-t border-dashed" style={{ borderColor: "var(--color-emerald, #10b981)" }} />
+            <span className="text-[10px] font-semibold uppercase tracking-wider shrink-0" style={{ color: "var(--color-emerald, #10b981)" }}>
+              drag to set today
+            </span>
+            <div className="flex-1 border-t border-dashed" style={{ borderColor: "var(--color-emerald, #10b981)" }} />
+          </div>
         </div>
       )}
 
@@ -509,16 +532,26 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
             <Fragment key={item.id}>
               {showTodayLine && (
                 <div
-                  className="flex items-center gap-2 py-2 cursor-ns-resize select-none"
-                  style={{ touchAction: "none" }}
-                  onMouseDown={handleLineDrag}
-                  onTouchStart={handleLineDrag}
+                  className={`flex items-center gap-2 rounded-xl p-3 border-2 border-dashed transition-all select-none ${draggingTodayLine ? "opacity-50 scale-95" : ""}`}
+                  style={{ borderColor: "var(--color-emerald, #10b981)", touchAction: "none" }}
+                  onTouchStart={handleTodayLineTouchStart}
+                  onTouchEnd={handleTodayLineTouchEnd}
+                  onTouchMove={handleTodayLineTouchMove}
                 >
-                  <div className="flex-1 border-t-2 border-dashed" style={{ borderColor: "var(--color-emerald, #10b981)" }} />
-                  <span className="text-[10px] font-semibold uppercase tracking-wider px-1 shrink-0" style={{ color: "var(--color-emerald, #10b981)" }}>
-                    today
-                  </span>
-                  <div className="flex-1 border-t-2 border-dashed" style={{ borderColor: "var(--color-emerald, #10b981)" }} />
+                  <div
+                    className="shrink-0 cursor-grab active:cursor-grabbing touch-none"
+                    style={{ color: "var(--color-emerald, #10b981)" }}
+                    onMouseDown={handleTodayLineMouseDown}
+                  >
+                    <GripVertical className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 flex items-center gap-2">
+                    <div className="flex-1 border-t border-dashed" style={{ borderColor: "var(--color-emerald, #10b981)" }} />
+                    <span className="text-[10px] font-semibold uppercase tracking-wider shrink-0" style={{ color: "var(--color-emerald, #10b981)" }}>
+                      today
+                    </span>
+                    <div className="flex-1 border-t border-dashed" style={{ borderColor: "var(--color-emerald, #10b981)" }} />
+                  </div>
                 </div>
               )}
               {showDropBefore && (
@@ -526,6 +559,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
               )}
             <div
               data-drag-index={index}
+              data-item-index={index}
               className={`flex items-center gap-2 bg-surface rounded-xl p-3 border transition-all ${
                 isBeingDragged ? "border-emerald opacity-50 scale-95" : "border-border"
               }`}
