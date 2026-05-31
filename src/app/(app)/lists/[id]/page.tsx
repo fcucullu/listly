@@ -300,13 +300,15 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   // Build combined list: items + today line interleaved
   const buildCombinedList = useCallback(() => {
     const unchecked = uncheckedItemsRef.current;
+    if (unchecked.length === 0) return [] as Array<{ type: "item"; item: Item } | { type: "today" }>;
     const combined: Array<{ type: "item"; item: Item } | { type: "today" }> = [];
+    const clampedCount = Math.min(todayCount, unchecked.length);
     for (let i = 0; i < unchecked.length; i++) {
-      if (i === todayCount && todayCount > 0) combined.push({ type: "today" });
+      if (i === clampedCount) combined.push({ type: "today" });
       combined.push({ type: "item", item: unchecked[i] });
     }
-    // Today line at the very end
-    if (todayCount >= unchecked.length && todayCount > 0) combined.push({ type: "today" });
+    // Today line at the very end if all items are "for today"
+    if (clampedCount >= unchecked.length) combined.push({ type: "today" });
     return combined;
   }, [todayCount]);
 
