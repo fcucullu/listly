@@ -136,75 +136,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
       .eq("id", listId);
   };
 
-  // Today line drag — uses the same item drag indices to determine position
-  const [draggingTodayLine, setDraggingTodayLine] = useState(false);
-  const todayLongPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handleTodayLineTouchStart = () => {
-    todayLongPressTimer.current = setTimeout(() => {
-      setDraggingTodayLine(true);
-      if (navigator.vibrate) navigator.vibrate(30);
-    }, 400);
-  };
-
-  const handleTodayLineTouchEnd = () => {
-    if (todayLongPressTimer.current) {
-      clearTimeout(todayLongPressTimer.current);
-      todayLongPressTimer.current = null;
-    }
-    if (draggingTodayLine) {
-      setDraggingTodayLine(false);
-      saveTodayCount(todayCount);
-    }
-  };
-
-  const handleTodayLineTouchMove = (e: React.TouchEvent) => {
-    if (!draggingTodayLine) {
-      if (todayLongPressTimer.current) {
-        clearTimeout(todayLongPressTimer.current);
-        todayLongPressTimer.current = null;
-      }
-      return;
-    }
-    e.preventDefault();
-    const touch = e.touches[0];
-    const itemEls = document.querySelectorAll("[data-item-index]");
-    let newCount = 0;
-    itemEls.forEach((el) => {
-      const rect = el.getBoundingClientRect();
-      if (touch.clientY > rect.top + rect.height / 2) {
-        newCount = parseInt(el.getAttribute("data-item-index")!, 10) + 1;
-      }
-    });
-    setTodayCount(Math.max(0, Math.min(newCount, uncheckedItemsRef.current.length)));
-  };
-
-  const handleTodayLineMouseDown = () => {
-    setDraggingTodayLine(true);
-    if (navigator.vibrate) navigator.vibrate(30);
-
-    const onMove = (ev: MouseEvent) => {
-      const itemEls = document.querySelectorAll("[data-item-index]");
-      let newCount = 0;
-      itemEls.forEach((el) => {
-        const rect = el.getBoundingClientRect();
-        if (ev.clientY > rect.top + rect.height / 2) {
-          newCount = parseInt(el.getAttribute("data-item-index")!, 10) + 1;
-        }
-      });
-      setTodayCount(Math.max(0, newCount));
-    };
-
-    const onEnd = () => {
-      setDraggingTodayLine(false);
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onEnd);
-      setTodayCount((c) => { saveTodayCount(c); return c; });
-    };
-
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onEnd);
-  };
+  const TODAY_LINE_ID = "__today_line__";
 
   const loadItems = async () => {
     const { data } = await supabase
@@ -365,26 +297,80 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     window.location.href = "/lists";
   };
 
-  const handleReorder = useCallback(async (fromIdx: number, toIdx: number) => {
-    const reordered = [...uncheckedItemsRef.current];
-    const [moved] = reordered.splice(fromIdx, 1);
-    reordered.splice(toIdx, 0, moved);
+  // Build combined list: items + today line interleaved
+  const buildCombinedList = useCallback(() => {
+    const unchecked = uncheckedItemsRef.current;
+    const combined: Array<{ type: "item"; item: Item } | { type: "today" }> = [];
+    for (let i = 0; i < unchecked.length; i++) {
+      if (i === todayCount && todayCount > 0) combined.push({ type: "today" });
+      combined.push({ type: "item", item: unchecked[i] });
+    }
+    // Today line at the very end
+    if (todayCount >= unchecked.length && todayCount > 0) combined.push({ type: "today" });
+    return combined;
+  }, [todayCount]);
 
-    // Update positions locally for instant feedback
+  const handleReorder = useCallback(async (fromIdx: number, toIdx: number) => {
+    const combined = buildCombinedList();
+    const fromEntry = combined[fromIdx];
+    const toEntry = combined[toIdx];
+
+    if (fromEntry.type === "today") {
+      // Dragging the today line — count how many items are above the new position
+      let itemCount = 0;
+      for (let i = 0; i < toIdx; i++) {
+        if (combined[i].type === "item") itemCount++;
+      }
+      // If dropping below an item, count that item too
+      if (toEntry?.type === "item" && toIdx > fromIdx) itemCount++;
+      setTodayCount(itemCount);
+      saveTodayCount(itemCount);
+      return;
+    }
+
+    // Dragging an item — convert combined indices to item-only indices
+    let fromItemIdx = 0, toItemIdx = 0, count = 0;
+    for (let i = 0; i < combined.length; i++) {
+      if (combined[i].type === "item") {
+        if (i === fromIdx) fromItemIdx = count;
+        if (i === toIdx) toItemIdx = count;
+        count++;
+      }
+    }
+    // If dropping on the today line, find nearest item index
+    if (toEntry?.type === "today") {
+      toItemIdx = toIdx > fromIdx ? Math.min(fromItemIdx + 1, uncheckedItemsRef.current.length - 1) : Math.max(fromItemIdx - 1, 0);
+    }
+
+    if (fromItemIdx === toItemIdx) return;
+
+    // Also adjust todayCount if item crossed the line
+    const oldTodayCount = todayCount;
+    let newTodayCount = oldTodayCount;
+    if (fromItemIdx < oldTodayCount && toItemIdx >= oldTodayCount) newTodayCount--;
+    else if (fromItemIdx >= oldTodayCount && toItemIdx < oldTodayCount) newTodayCount++;
+    if (newTodayCount !== oldTodayCount) {
+      setTodayCount(newTodayCount);
+      saveTodayCount(newTodayCount);
+    }
+
+    const reordered = [...uncheckedItemsRef.current];
+    const [moved] = reordered.splice(fromItemIdx, 1);
+    reordered.splice(toItemIdx, 0, moved);
+
     const updated = reordered.map((item, i) => ({ ...item, position: i }));
     setItems((prev) => [
       ...updated,
       ...prev.filter((i) => i.checked),
     ]);
 
-    // Persist to DB
     for (let i = 0; i < updated.length; i++) {
       await supabase
         .from("listly_items")
         .update({ position: i })
         .eq("id", updated[i].id);
     }
-  }, [supabase]);
+  }, [supabase, buildCombinedList, todayCount]);
 
   const handleDragStart = (index: number) => {
     setDragIndex(index);
@@ -495,71 +481,59 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
         </button>
       </div>
 
-      {/* Today line — show at top if todayCount === 0 and there are items, to let user drag it down */}
-      {uncheckedItems.length > 0 && todayCount === 0 && (
-        <div
-          className={`flex items-center gap-2 rounded-xl p-3 border-2 border-dashed mb-2 select-none opacity-40 hover:opacity-100 transition-all ${draggingTodayLine ? "opacity-100 scale-95" : ""}`}
-          style={{ borderColor: "var(--color-emerald, #10b981)", touchAction: "none" }}
-          onTouchStart={handleTodayLineTouchStart}
-          onTouchEnd={handleTodayLineTouchEnd}
-          onTouchMove={handleTodayLineTouchMove}
-        >
-          <div
-            className="shrink-0 cursor-grab active:cursor-grabbing touch-none"
-            style={{ color: "var(--color-emerald, #10b981)" }}
-            onMouseDown={handleTodayLineMouseDown}
-          >
-            <GripVertical className="w-4 h-4" />
-          </div>
-          <div className="flex-1 flex items-center gap-2">
-            <div className="flex-1 border-t border-dashed" style={{ borderColor: "var(--color-emerald, #10b981)" }} />
-            <span className="text-[10px] font-semibold uppercase tracking-wider shrink-0" style={{ color: "var(--color-emerald, #10b981)" }}>
-              drag to set today
-            </span>
-            <div className="flex-1 border-t border-dashed" style={{ borderColor: "var(--color-emerald, #10b981)" }} />
-          </div>
-        </div>
-      )}
-
-      {/* Unchecked items */}
+      {/* Unchecked items + today line (unified drag system) */}
       <div className="space-y-2 mb-6" onTouchMove={handleTouchMove}>
-        {uncheckedItems.map((item, index) => {
+        {buildCombinedList().map((entry, index) => {
           const isBeingDragged = isDragging && dragIndex === index;
           const showDropBefore = isDragging && overIndex === index && dragIndex !== index && dragIndex !== null && dragIndex > index;
           const showDropAfter = isDragging && overIndex === index && dragIndex !== index && dragIndex !== null && dragIndex < index;
-          const showTodayLine = todayCount > 0 && index === todayCount;
-          return (
-            <Fragment key={item.id}>
-              {showTodayLine && (
+
+          if (entry.type === "today") {
+            return (
+              <Fragment key={TODAY_LINE_ID}>
+                {showDropBefore && (
+                  <div className="h-0.5 rounded-full mx-3" style={{ backgroundColor: "var(--color-emerald, #10b981)" }} />
+                )}
                 <div
-                  className={`flex items-center gap-2 rounded-xl p-3 border-2 border-dashed transition-all select-none ${draggingTodayLine ? "opacity-50 scale-95" : ""}`}
-                  style={{ borderColor: "var(--color-emerald, #10b981)", touchAction: "none" }}
-                  onTouchStart={handleTodayLineTouchStart}
-                  onTouchEnd={handleTodayLineTouchEnd}
-                  onTouchMove={handleTodayLineTouchMove}
+                  data-drag-index={index}
+                  className={`flex items-center gap-2 py-1.5 select-none transition-all ${isBeingDragged ? "opacity-50" : ""}`}
+                  style={{ touchAction: "none" }}
+                  draggable={isDragging}
+                  onDragStart={() => handleDragStart(index)}
+                  onDragOver={(e) => { e.preventDefault(); handleDragOver(index); }}
+                  onDrop={handleDragEnd}
+                  onDragEnd={handleDragEnd}
+                  onTouchStart={() => handleTouchStart(index)}
+                  onTouchEnd={handleTouchEnd}
                 >
                   <div
                     className="shrink-0 cursor-grab active:cursor-grabbing touch-none"
                     style={{ color: "var(--color-emerald, #10b981)" }}
-                    onMouseDown={handleTodayLineMouseDown}
+                    onMouseDown={() => handleDragStart(index)}
                   >
                     <GripVertical className="w-4 h-4" />
                   </div>
-                  <div className="flex-1 flex items-center gap-2">
-                    <div className="flex-1 border-t border-dashed" style={{ borderColor: "var(--color-emerald, #10b981)" }} />
-                    <span className="text-[10px] font-semibold uppercase tracking-wider shrink-0" style={{ color: "var(--color-emerald, #10b981)" }}>
-                      today
-                    </span>
-                    <div className="flex-1 border-t border-dashed" style={{ borderColor: "var(--color-emerald, #10b981)" }} />
-                  </div>
+                  <div className="flex-1 border-t-2 border-dashed" style={{ borderColor: "var(--color-emerald, #10b981)" }} />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider px-1 shrink-0" style={{ color: "var(--color-emerald, #10b981)" }}>
+                    today
+                  </span>
+                  <div className="flex-1 border-t-2 border-dashed" style={{ borderColor: "var(--color-emerald, #10b981)" }} />
                 </div>
-              )}
+                {showDropAfter && (
+                  <div className="h-0.5 rounded-full mx-3" style={{ backgroundColor: "var(--color-emerald, #10b981)" }} />
+                )}
+              </Fragment>
+            );
+          }
+
+          const item = entry.item;
+          return (
+            <Fragment key={item.id}>
               {showDropBefore && (
                 <div className="h-0.5 rounded-full mx-3" style={{ backgroundColor: "var(--color-emerald, #10b981)" }} />
               )}
             <div
               data-drag-index={index}
-              data-item-index={index}
               className={`flex items-center gap-2 bg-surface rounded-xl p-3 border transition-all ${
                 isBeingDragged ? "border-emerald opacity-50 scale-95" : "border-border"
               }`}
