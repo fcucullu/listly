@@ -130,8 +130,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     }
   };
 
-  const updateTodayCount = async (count: number) => {
-    setTodayCount(count);
+  const saveTodayCount = async (count: number) => {
     await supabase
       .from("listly_lists")
       .update({ today_count: count })
@@ -144,8 +143,13 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     setDraggingLine(true);
     if (navigator.vibrate) navigator.vibrate(30);
 
-    const getY = (ev: TouchEvent | MouseEvent) =>
-      "touches" in ev ? ev.touches[0].clientY : (ev as MouseEvent).clientY;
+    const getY = (ev: TouchEvent | MouseEvent) => {
+      if ("touches" in ev) {
+        const touch = ev.touches[0] || ev.changedTouches[0];
+        return touch?.clientY ?? 0;
+      }
+      return (ev as MouseEvent).clientY;
+    };
 
     const onMove = (ev: TouchEvent | MouseEvent) => {
       ev.preventDefault();
@@ -168,12 +172,19 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
       document.removeEventListener("touchend", onEnd);
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onEnd);
-      setTimeout(() => {
-        setTodayCount((c) => {
-          supabase.from("listly_lists").update({ today_count: c }).eq("id", listId);
-          return c;
-        });
-      }, 0);
+      // Calculate final position from DOM
+      const y = getY(ev);
+      const els = document.querySelectorAll("[data-drag-index]");
+      let finalCount = 0;
+      els.forEach((el) => {
+        const rect = el.getBoundingClientRect();
+        if (y > rect.top + rect.height / 2) {
+          finalCount = parseInt(el.getAttribute("data-drag-index")!, 10) + 1;
+        }
+      });
+      finalCount = Math.max(0, finalCount);
+      setTodayCount(finalCount);
+      saveTodayCount(finalCount);
     };
 
     document.addEventListener("touchmove", onMove, { passive: false });
