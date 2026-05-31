@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback, use } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { ArrowLeft, Share2, Trash2, X, UserMinus, GripVertical } from "lucide-react";
+import { ArrowLeft, Share2, Trash2, X, UserMinus, GripVertical, User } from "lucide-react";
 import Link from "next/link";
 import { ConfettiBurst } from "@/components/confetti";
 
@@ -13,6 +13,7 @@ interface Item {
   added_by: string;
   created_at: string;
   position: number;
+  assigned_to: string | null;
 }
 
 interface SharedUser {
@@ -27,6 +28,11 @@ interface ConfettiState {
   y: number;
 }
 
+const MEMBER_COLORS = [
+  "#10b981", "#f59e0b", "#8b5cf6", "#ef4444", "#3b82f6",
+  "#ec4899", "#14b8a6", "#f97316", "#6366f1", "#84cc16",
+];
+
 export default function ListDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: listId } = use(params);
   const supabase = createClient();
@@ -40,6 +46,8 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const [shareEmail, setShareEmail] = useState("");
   const [shareMessage, setShareMessage] = useState("");
   const [sharedUsers, setSharedUsers] = useState<SharedUser[]>([]);
+  const [members, setMembers] = useState<SharedUser[]>([]);
+  const [assignPopover, setAssignPopover] = useState<string | null>(null);
   const confettiKey = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -47,9 +55,53 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
+  const loadMembers = async () => {
+    const { data } = await supabase
+      .from("listly_members")
+      .select("user_id, global_profiles!listly_members_user_id_fkey(id, email, display_name)")
+      .eq("list_id", listId);
+    const users = (data ?? [])
+      .map((m) => (m as any).global_profiles as unknown as SharedUser)
+      .filter(Boolean);
+    setMembers(users);
+  };
+
+  const getMemberColor = (userId: string) => {
+    const idx = members.findIndex((m) => m.id === userId);
+    return MEMBER_COLORS[idx % MEMBER_COLORS.length];
+  };
+
+  const getMemberInitial = (userId: string) => {
+    const member = members.find((m) => m.id === userId);
+    if (!member) return "?";
+    const name = member.display_name || member.email;
+    return name.charAt(0).toUpperCase();
+  };
+
+  const assignItem = async (itemId: string, userId: string | null) => {
+    await supabase
+      .from("listly_items")
+      .update({ assigned_to: userId })
+      .eq("id", itemId);
+    setAssignPopover(null);
+    loadItems();
+  };
+
+  // Close assign popover on click outside
+  useEffect(() => {
+    if (!assignPopover) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest("[data-assign-popover]")) setAssignPopover(null);
+    };
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, [assignPopover]);
+
   useEffect(() => {
     loadList();
     loadItems();
+    loadMembers();
 
     const channel = supabase
       .channel(`list:${listId}`)
@@ -186,6 +238,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
       .map((m) => (m as any).global_profiles as unknown as SharedUser)
       .filter(Boolean);
     setSharedUsers(users);
+    setMembers(users);
   };
 
   const handleShare = async () => {
@@ -394,6 +447,51 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                 className="w-6 h-6 rounded-full border-2 border-emerald shrink-0 hover:bg-emerald/20 transition-colors"
               />
               <span className="flex-1 text-sm text-foreground">{item.name}</span>
+              <div className="relative shrink-0" data-assign-popover>
+                <button
+                  onClick={() => setAssignPopover(assignPopover === item.id ? null : item.id)}
+                  className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors"
+                  style={item.assigned_to ? {
+                    backgroundColor: getMemberColor(item.assigned_to),
+                    color: "#fff",
+                  } : {
+                    backgroundColor: "transparent",
+                    border: "1.5px dashed var(--color-muted)",
+                    color: "var(--color-muted)",
+                  }}
+                  title={item.assigned_to ? members.find(m => m.id === item.assigned_to)?.display_name || "Assigned" : "Assign"}
+                >
+                  {item.assigned_to ? getMemberInitial(item.assigned_to) : <User className="w-3 h-3" />}
+                </button>
+                {assignPopover === item.id && (
+                  <div className="absolute right-0 top-8 bg-surface border border-border rounded-xl shadow-lg z-50 py-1 min-w-[160px]">
+                    {members.map((m) => (
+                      <button
+                        key={m.id}
+                        onClick={() => assignItem(item.id, m.id)}
+                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-foreground hover:bg-background transition-colors"
+                      >
+                        <span
+                          className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+                          style={{ backgroundColor: getMemberColor(m.id) }}
+                        >
+                          {(m.display_name || m.email).charAt(0).toUpperCase()}
+                        </span>
+                        <span className="truncate">{m.display_name || m.email}</span>
+                      </button>
+                    ))}
+                    {item.assigned_to && (
+                      <button
+                        onClick={() => assignItem(item.id, null)}
+                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-muted hover:bg-background transition-colors border-t border-border"
+                      >
+                        <X className="w-4 h-4" />
+                        <span>Unassign</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
               <button
                 onClick={() => deleteItem(item.id)}
                 className="text-muted hover:text-red-400 shrink-0"
@@ -430,6 +528,14 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                   <span className="text-black text-xs font-bold">✓</span>
                 </button>
                 <span className="flex-1 text-sm text-foreground line-through">{item.name}</span>
+                {item.assigned_to && (
+                  <span
+                    className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+                    style={{ backgroundColor: getMemberColor(item.assigned_to) }}
+                  >
+                    {getMemberInitial(item.assigned_to)}
+                  </span>
+                )}
                 <button
                   onClick={() => deleteItem(item.id)}
                   className="text-muted hover:text-red-400 shrink-0"
