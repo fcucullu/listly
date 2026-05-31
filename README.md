@@ -4,34 +4,33 @@
 
 # Listly
 
-**Shared shopping lists for couples and friends.**
+**Shared lists for getting things done together.**
 
 ## The Problem
 
-Grocery shopping as a couple is a coordination nightmare. You both add things mentally, forget half of them at the store, buy duplicates, and miss what the other person needed. Shared notes apps work but feel clunky and lack the satisfaction of checking things off.
+Coordinating tasks with your partner, roommates, or family is a mess. Shared notes apps work but feel clunky, and you can never tell who's doing what or what needs to happen today.
 
 ## The Solution
 
-Listly is a PWA for creating and sharing shopping lists in real-time. Create a list, share it with your partner by email, and both of you can add and check off items instantly. Checking off the last item triggers a celebration with confetti — because finishing the grocery list deserves a party.
+Listly is a collaborative task list PWA. Create lists, share them by email, assign items to specific people, and set a draggable "today" line to prioritize what matters now. Real-time sync means everyone sees changes instantly. Checking off the last item triggers a confetti celebration.
 
 ## Who It's For
 
-- Couples managing household shopping together
-- Roommates splitting grocery duties
-- Families coordinating what to buy
-- Anyone who wants a simple, shared, satisfying shopping list
+- Couples splitting household tasks
+- Roommates coordinating chores and errands
+- Families managing shared to-dos
+- Small teams that want something simpler than project management tools
 
 ## Key Features
 
 - Google sign-in
-- Create multiple lists with custom emoji (Groceries, Wish List, Home, etc.)
+- Create multiple lists with custom emoji
 - Share lists with specific people by email
-- Add items and check them off in real-time
-- Confetti animation on check-off
-- Triple confetti celebration when all items are checked
-- Delete checked items or clear all at once
+- Assign items to members with colored initials
+- Draggable "today" line to separate what's for today vs later
 - Real-time sync via Supabase subscriptions
-- App badge showing unchecked item count
+- Confetti animation on check-off (triple celebration when all done)
+- Drag-to-reorder items
 - Installable as a PWA on mobile
 
 ## Tech Stack
