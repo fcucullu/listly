@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/client";
 import { ListChecks } from "lucide-react";
+import { InstallPrompt } from "@/components/install-prompt";
 
 export default function LoginPage() {
   const supabase = createClient();
@@ -39,6 +40,10 @@ export default function LoginPage() {
         </svg>
         Sign in with Google
       </button>
+
+      <div className="w-full max-w-sm mt-10">
+        <InstallPrompt />
+      </div>
     </div>
   );
 }
