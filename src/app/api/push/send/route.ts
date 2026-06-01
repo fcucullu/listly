@@ -2,12 +2,6 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import webPush from "web-push";
 
-webPush.setVapidDetails(
-  "mailto:francisco.cucullu@gmail.com",
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-);
-
 export async function POST(request: Request) {
   const authHeader = request.headers.get("authorization");
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -15,6 +9,20 @@ export async function POST(request: Request) {
   if (authHeader !== serviceRoleKey) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  // Configure VAPID inside the handler — NEVER at module top-level. Top-level
+  // execution runs during `next build` page-data collection and crashes the
+  // whole build when these env vars are missing.
+  const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+  if (!vapidPublicKey || !vapidPrivateKey) {
+    return NextResponse.json({ error: "Push not configured" }, { status: 503 });
+  }
+  webPush.setVapidDetails(
+    "mailto:francisco.cucullu@gmail.com",
+    vapidPublicKey,
+    vapidPrivateKey
+  );
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
